@@ -82,10 +82,10 @@ module.exports = function (app) {
 
     router.post('/meals', async (req, res) => {
         let meals = [];
-        let periodStart = DateTime.now().startOf('day');
+        let periodStart = DateTime.local().setZone("America/Guayaquil").startOf('day');
         let periodEnd = periodStart.plus({ days: 14 });
         const mealsRef = db.collection('meals');
-        const snapshot = await mealsRef.where('user', '==', res.locals.uid).where('date', '>', Timestamp.fromDate(periodStart.toJSDate())).where('date', '<', Timestamp.fromDate(periodEnd.toJSDate())).orderBy('date').get();
+        const snapshot = await mealsRef.where('user', '==', res.locals.uid).where('date', '>=', Timestamp.fromDate(periodStart.toJSDate())).where('date', '<', Timestamp.fromDate(periodEnd.toJSDate())).orderBy('date').get();
 
         snapshot.forEach(doc => {
             meals.push(doc.data());
