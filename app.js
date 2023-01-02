@@ -318,7 +318,7 @@ async function asd(users) {
 app.post('/todaymeals', async (req, res) => {
     let response = [];
     let today = DateTime.now().startOf('day').toJSDate();
-    console.log(today);
+    console.log(Timestamp.fromDate(today));
     let mealsRef = db.collection('meals');
     let snapshot = await mealsRef.where('date', '==', Timestamp.fromDate(today)).get();
     snapshot.forEach(doc => {
