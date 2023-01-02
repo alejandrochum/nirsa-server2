@@ -372,7 +372,7 @@ app.post('/chefreport', (req, res) => {
 
 app.post('/qrscanned', async (req, res) => {
     let uid = req.body.qr;
-    let today = DateTime.now().startOf('day').toJSDate();
+    let today = DateTime.local().setZone("America/Guayaquil").startOf('day').toJSDate();
     sdate = today.setHours(0, 0, 0, 0);
     if (uid.length < 10) {
         const mealsRef = db.collection('meals');
