@@ -22,7 +22,7 @@ module.exports = function (app) {
     }
 
     app.get('/emails', async (req, res) => {
-        let today = DateTime.now().startOf('day').toJSDate();
+        let today = DateTime.local().setZone("America/Guayaquil").startOf('day').toJSDate();
         let todayMeals = [];
         let mealsRef = db.collection('meals');
         let snapshot = await mealsRef.where('date', '==', Timestamp.fromDate(today)).get();

@@ -57,7 +57,7 @@ module.exports = function (app) {
 
     router.post('/meals', async (req, res) => {
         let response = [];
-        let today = DateTime.now().startOf('day').toJSDate();
+        let today = DateTime.local().setZone("America/Guayaquil").startOf('day').toJSDate();
         let mealsRef = db.collection('meals');
         let snapshot = await mealsRef.where('date', '==', Timestamp.fromDate(today)).get();
         snapshot.forEach(doc => {
