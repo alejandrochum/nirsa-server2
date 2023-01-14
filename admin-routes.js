@@ -411,23 +411,22 @@ module.exports = function (app) {
         res.send(users);
     })
 
-    router.post('/deletecolaborador', (req, res) => {
+    router.post('/deletecolaborador', async (req, res) => {
         db.collection('colaboradores').doc(req.body.id).delete().then(() => {
-            let mealstodelete = meals.filter(meal => meal.user === req.body.id);
-            mealstodelete.forEach(meal => {
-                let today = new Date().getTime();
-                let mealDate = new Date(meal.date._seconds * 1000).getTime();
-                if (mealDate > today) {
-                    db.collection('meals').doc(meal.id).delete();
-                    console.log('deleted meal', new Date(meal.date._seconds * 1000).toLocaleDateString());
-                }
+            const mealsRef = db.collection('meals');
+            mealsRef.where('user', '==', req.body.id).get().then(data => {
+                data.forEach(doc => {
+                    db.collection('meals').doc(doc.id).delete();
+                })
             })
             getAuth().deleteUser(req.body.id).then(() => {
                 res.send('success');
             }).catch((error) => {
+                console.log(error)
                 res.send('Error al eliminar el colaborador');
             })
         }).catch(error => {
+            console.log(error)
             res.send('Error al eliminar el colaborador')
         })
     })
@@ -646,12 +645,14 @@ module.exports = function (app) {
                 });
             }).catch(error => {
                 // create user db error
+                console.log(error)
                 res.send({
                     status: 'error',
                     data: 'El correo electronico ya existe'
                 });
             })
         }).catch((error) => {
+            console.log(error)
             res.send({
                 // create user error
                 status: 'error',
