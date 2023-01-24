@@ -28,6 +28,7 @@ app.use('/images', express.static('images'));
 
 const listeners = require('./listeners.js');
 const { response } = require('express');
+const { timeStamp } = require('console');
 let meals = listeners.meals;
 let requests = listeners.requests;
 
@@ -372,15 +373,20 @@ app.post('/chefreport', (req, res) => {
 
 app.post('/qrscanned', async (req, res) => {
     let uid = req.body.qr;
-    let today = DateTime.local().setZone("America/Guayaquil").startOf('day').toJSDate();
-    sdate = today.setHours(0, 0, 0, 0);
-    if (uid.length < 10) {
+    console.log(uid);
+    let sdate = DateTime.local().setZone("America/Guayaquil").startOf('day').toJSDate();
+    let edate = DateTime.local().setZone("America/Guayaquil").startOf('day').toJSDate();
+    sdate.setHours(0, 0, 0, 0);
+    edate.setHours(23, 0, 0, 0)
+
+        if (uid.length < 10) {
         const mealsRef = db.collection('meals');
-        const snapshot = await mealsRef.where('user', '==', uid).where('date', '==', Timestamp.fromDate(today)).limit(1).get();
+        const snapshot = await mealsRef.where('user', '==', uid).where('date', '>=', Timestamp.fromDate(sdate)).where('date', '<=', Timestamp.fromDate(edate)).get();
         if (!snapshot.empty) {
             let meals = [];
             snapshot.forEach(doc => {
                 meals.push(doc.data());
+                console.log(doc.data());
             })
             let meal = meals[0];
             if (!meal.used) {
