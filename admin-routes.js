@@ -1,5 +1,5 @@
 const { getAuth, idToken } = require('firebase-admin/auth');
-const { getFirestore, Timestamp, FieldValue, collection, onSnapshot } = require('firebase-admin/firestore');
+const { getFirestore, Timestamp, FieldValue, collection, onSnapshot, batch } = require('firebase-admin/firestore');
 const { DateTime } = require('luxon');
 const express = require('express');
 const { json } = require('body-parser');
@@ -19,11 +19,7 @@ module.exports = function (app) {
     const listeners = require('./listeners.js');
 
     let admins = listeners.admins;
-    let companies = listeners.companies;
-    let users = listeners.users;
     let prices = listeners.prices;
-    let requests = listeners.requests;
-    let holidays = listeners.holidays;
 
     function SendEmail(mailOptions) {
         transporter.sendMail(mailOptions, function (error, info) {
@@ -51,6 +47,13 @@ module.exports = function (app) {
         }).catch((error) => {
             res.send(error)
         })
+    });
+
+    router.post('/cheflogin', (req, res) => {
+        res.send({
+            admin: res.locals.admin,
+            status: 'success'
+        });
     });
 
     // MEALS 
@@ -86,8 +89,14 @@ module.exports = function (app) {
     })
 
     // COMPANIES
-    router.post('/companies', (req, res) => {
-        res.send(companies);
+    router.post('/companies', async (req, res) => {
+        let result = [];
+        const companiesRef = db.collection("companies");
+        const snapshot = await companiesRef.get();
+        snapshot.forEach(doc => {
+            result.push(doc.data());
+        })
+        res.send(result);
     })
 
     router.post('/addCompany', (req, res) => {
@@ -98,8 +107,36 @@ module.exports = function (app) {
         res.send('success');
     })
 
-    router.post('/deleteCompany', (req, res) => {
-        db.collection('companies').doc(req.body.company).delete();
+    router.post('/deleteCompany', async (req, res) => {
+        await db.collection('companies').doc(req.body.company).delete();
+        res.send('success');
+    })
+
+    router.post("/editCompany", async (req, res) => {
+        // await db.collection('companies').doc(req.body.company).delete();
+        const data = {
+            name: req.body.newname,
+        }
+        // db.collection('companies').doc(req.body.newname).set(data);
+        // res.send('success');
+
+        const batch = db.batch();
+
+        const oldCompanyRef = db.collection('companies').doc(req.body.company);
+        batch.delete(oldCompanyRef);
+
+        const newCompanyRef = db.collection('companies').doc(req.body.newname);
+        batch.set(newCompanyRef, data);
+
+        const users = await db.collection('colaboradores').where('company', '==', req.body.company).get();
+        users.forEach(doc => {
+            batch.update(doc.ref, {
+                company: req.body.newname
+            })
+        })
+
+
+        await batch.commit();
         res.send('success');
     })
 
@@ -117,12 +154,7 @@ module.exports = function (app) {
         }
     });
 
-    router.post('/cheflogin', (req, res) => {
-        res.send({
-            admin: res.locals.admin,
-            status: 'success'
-        });
-    });
+
 
     router.post('/admins', (req, res) => {
         res.send(admins);
@@ -407,31 +439,39 @@ module.exports = function (app) {
 
     // COLABORADORES
 
-    router.post('/colaboradores', (req, res) => {
-        res.send(users);
+    router.post('/colaboradores', async (req, res) => {
+        let response = [];
+        const usersRef = db.collection('colaboradores');
+        const snapshot = await usersRef.get();
+        snapshot.forEach(doc => {
+            response.push(doc.data());
+        })
+        res.send(response);
     })
 
     router.post('/deletecolaborador', async (req, res) => {
-        db.collection('colaboradores').doc(req.body.id).delete().then(() => {
-            const mealsRef = db.collection('meals');
-            mealsRef.where('user', '==', req.body.id).get().then(data => {
-                data.forEach(doc => {
-                    db.collection('meals').doc(doc.id).delete();
+
+        getAuth().deleteUser(req.body.id).then(() => {
+            db.collection('colaboradores').doc(req.body.id).delete().then(() => {
+                const mealsRef = db.collection('meals');
+                mealsRef.where('user', '==', req.body.id).get().then(data => {
+                    data.forEach(doc => {
+                        db.collection('meals').doc(doc.id).delete();
+                    })
+                    res.send("success");
                 })
-            })
-            getAuth().deleteUser(req.body.id).then(() => {
-                res.send('success');
-            }).catch((error) => {
+            }).catch(error => {
                 console.log(error)
-                res.send('Error al eliminar el colaborador');
+                res.send('Error al eliminar el colaborador')
             })
-        }).catch(error => {
+        }).catch((error) => {
             console.log(error)
-            res.send('Error al eliminar el colaborador')
+            res.send('Error al eliminar el colaborador');
         })
+
     })
 
-    router.post('/editcolaborador', (req, res) => {
+    router.post('/editcolaborador', async (req, res) => {
         let active = req.body.active === 'true' ? true : false;
         db.collection('colaboradores').doc(req.body.id).update({
             active: active,
@@ -441,21 +481,16 @@ module.exports = function (app) {
         }).then(() => {
             res.send('success');
         }).catch(error => {
-            res.send('Error al editar el colaborador')
+            res.send('Error al editar el colaborador');
+            console.log(error);
         })
     })
 
-    router.post('/createcolaborador', (req, res) => {
+    router.post('/createcolaborador', async (req, res) => {
         var password = Math.floor(1000000 + Math.random() * 1000000).toString();
+
         let data = JSON.parse(req.body.user);
-        let index = users.findIndex(user => user.id === data.id);
-        if (index > -1) {
-            res.send({
-                status: 'error',
-                data: 'Ya existe un colaborador con el mismo numero de identificacion'
-            });
-            return;
-        }
+
         getAuth().createUser({
             uid: data.id,
             email: data.email,
@@ -463,7 +498,7 @@ module.exports = function (app) {
             displayName: data.name + ' ' + data.lastname,
             disabled: false,
             emailVerified: false
-        }).then((userRecord) => {
+        }).then(() => {
             db.collection('colaboradores').doc(data.id).set(data).then(() => {
                 const recipients = [
                     new Recipient(data.email, data.name + ' ' + data.lastname)
@@ -670,7 +705,7 @@ module.exports = function (app) {
         });
     })
 
-    router.post('/editprice', (req, res) => {
+    router.post('/editprice', async (req, res) => {
         let data = JSON.parse(req.body.data);
         let type = data.type;
         let price = data.price;
@@ -691,15 +726,22 @@ module.exports = function (app) {
     })
 
     // SOLICITUDES
-    router.post('/requests', (req, res) => {
-        console.log(requests);
+    router.post('/requests', async (req, res) => {
+        let response = [];
+        const requestRef = db.collection("requests");
+        const snapshot = await requestRef.get();
+
+        snapshot.forEach(doc => {
+            response.push(doc.data());
+        })
+
         res.send({
             status: 'success',
-            data: requests
+            data: response
         })
     })
 
-    router.post('/approverequest', (req, res) => {
+    router.post('/approverequest', async (req, res) => {
         let data = JSON.parse(req.body.data);
         db.collection('requests').doc(data.id).update({
             approved: data.approved,
@@ -711,7 +753,7 @@ module.exports = function (app) {
         })
     })
 
-    router.post('/createrequest', (req, res) => {
+    router.post('/createrequest', async (req, res) => {
         let data = JSON.parse(req.body.data);
         db.collection('requests').add(data).then(docRef => {
             db.collection('requests').doc(docRef.id).update({
@@ -735,23 +777,28 @@ module.exports = function (app) {
     })
 
     // HOLIDAY
-    router.post('/holidays', (req, res) => {
+    router.post('/holidays', async (req, res) => {
+        let result = [];
+        const holidayRef = db.collection("holidays");
+        const snapshot = await holidayRef.get();
+        snapshot.forEach(doc => {
+            result.push(doc.data());
+        })
         res.send({
             status: 'success',
-            data: holidays
+            data: result
         })
     })
 
-    router.post('/addHoliday', (req, res) => {
+    router.post('/addHoliday', async (req, res) => {
         let holiday = req.body.holiday;
         let bHoliday = new Date(holiday).setHours(23, 59, 59, 999);
         let aHoliday = new Date(holiday).setHours(0, 0, 0, 0);
         console.log(holiday);
-        db.collection('holidays').doc(holiday).set({
+        await db.collection('holidays').doc(holiday).set({
             date: holiday,
         }).then(docRef => {
             db.collection('meals').where('date', '>=', new Date(aHoliday)).where('date', '<=', new Date(bHoliday)).get().then((docs) => {
-                console.log(docs.size);
                 docs.forEach((doc) => {
                     db.collection('meals').doc(doc.id).delete();
                 })
@@ -768,9 +815,9 @@ module.exports = function (app) {
         })
     })
 
-    router.post('/deleteHoliday', (req, res) => {
+    router.post('/deleteHoliday', async (req, res) => {
         let holiday = req.body.holiday;
-        db.collection('holidays').doc(holiday).delete().then(() => {
+        await db.collection('holidays').doc(holiday).delete().then(() => {
             res.send({
                 status: 'success',
                 data: holiday
