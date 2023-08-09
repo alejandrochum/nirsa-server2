@@ -10,7 +10,7 @@ module.exports = function (app) {
 
     const listeners = require('./listeners.js');
 
-    let users = listeners.users;
+    let users = []
     let prices = listeners.prices;
     let requests = listeners.requests;
     let holidays = listeners.holidays;
@@ -44,13 +44,10 @@ module.exports = function (app) {
         })
     });
 
-    router.post('/info', (req, res) => {
+    router.post('/info', async (req, res) => {
         let uid = res.locals.uid;
-        users.forEach(user => {
-            if (user.id === uid) {
-                res.send(user);
-            }
-        })
+        const userRef = await db.collection('colaboradores').doc(uid).get();
+        res.send(userRef.data());
     })
 
     // PRICES
