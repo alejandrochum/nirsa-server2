@@ -451,23 +451,29 @@ module.exports = function (app) {
 
     router.post('/deletecolaborador', async (req, res) => {
 
-        getAuth().deleteUser(req.body.id).then(() => {
-            db.collection('colaboradores').doc(req.body.id).delete().then(() => {
-                const mealsRef = db.collection('meals');
-                mealsRef.where('user', '==', req.body.id).get().then(data => {
-                    data.forEach(doc => {
-                        db.collection('meals').doc(doc.id).delete();
-                    })
-                    res.send("success");
-                })
-            }).catch(error => {
-                console.log(error)
-                res.send('Error al eliminar el colaborador')
-            })
-        }).catch((error) => {
-            console.log(error)
-            res.send('Error al eliminar el colaborador');
-        })
+        const batch = db.batch();
+        try {
+            await getAuth().deleteUser(req.body.id);
+        } catch (error) {
+            res.send("Error al eliminar el colaborador");
+            console.log(error);
+            return;
+        }
+
+        const userRef = db.collection('colaboradores').doc(req.body.id);
+        batch.delete(userRef);
+
+        const meals = await db.collection('meals').where('user', '==', req.body.id).get();
+        meals.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+        try {
+            await batch.commit();
+        } catch (error) {
+            console.log(error);
+        }
+        res.send("success");
 
     })
 
