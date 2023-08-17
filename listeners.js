@@ -11,10 +11,34 @@ const db = getFirestore();
 var admins = [];
 var prices = [];
 var holidays = [];
+var users = [];
 
 listenForAdmins();
 listenForPrices();
 listenForHolidays();
+listenForUsers();
+
+function listenForUsers() {
+    const query = db.collection('colaboradores');
+    const observer = query.onSnapshot(querySnapshot => {
+        querySnapshot.docChanges().forEach(change => {
+            if (change.type === 'added') {
+                users.push(change.doc.data());
+                console.log(change.doc.data())
+            }
+            if (change.type === 'modified') {
+                const index = users.findIndex(x => x.id === change.doc.id);
+                users.splice(index, 1, change.doc.data());
+                console.log(change.doc.data())
+            }
+            if (change.type === 'removed') {
+                const index = users.findIndex(x => x.uid === change.doc.id.toString());
+                users.splice(index, 1);
+                console.log('deleted:', change.doc.data())
+            }
+        })
+    })
+}
 
 function listenForAdmins() {
     const query = db.collection('admins');
@@ -87,3 +111,4 @@ function listenForHolidays() {
 exports.admins = admins;
 exports.prices = prices;
 exports.holidays = holidays;
+exports.users = users;
