@@ -142,6 +142,6 @@ var getUsers = () => {
 }
 exports.getUsers = getUsers;
 
-app.listen(4001, () => {
-    console.log("Listening on 4001");
+app.listen(8000, () => {
+    console.log("Listening on 8000");
 })
