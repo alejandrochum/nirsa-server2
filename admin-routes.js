@@ -462,10 +462,10 @@ module.exports = function (app) {
 
     router.post('/colaboradorcontrasena', async (req, res) => {
         let newPassword = generatePassword();
-        res.send(
+        res.json({
             status: "success",
             newPassword: newPassword
-        );
+        });
         // try {
         //     let newPassword = generatePassword();
         //     await getAuth().updateUser(req.body.id, {
