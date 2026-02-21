@@ -466,16 +466,22 @@ module.exports = function (app) {
             status: "success",
             newPassword: newPassword
         });
-        // try {
-        //     let newPassword = generatePassword();
-        //     await getAuth().updateUser(req.body.id, {
-        //         password: newPassword
-        //     });
-        //     res.send(newPassword);
-        // } catch (error) {
-        //     console.log(error);
-        //     res.send('Error al actualizar la contraseña del colaborador');
-        // }
+        try {
+            let newPassword = generatePassword();
+            await getAuth().updateUser(req.body.id, {
+                password: newPassword
+            });
+             res.json({
+            status: "success",
+            newPassword: newPassword
+        });
+        } catch (error) {
+            console.log(error);
+            res.json({
+                status: "error",
+                error: "Error al actualizar la contraseña"
+            });
+        }
     })
 
     router.post('/deletecolaborador', async (req, res) => {
