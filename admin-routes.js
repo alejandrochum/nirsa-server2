@@ -461,11 +461,6 @@ module.exports = function (app) {
     }
 
     router.post('/colaboradorcontrasena', async (req, res) => {
-        let newPassword = generatePassword();
-        res.json({
-            status: "success",
-            newPassword: newPassword
-        });
         try {
             let newPassword = generatePassword();
             await getAuth().updateUser(req.body.id, {
@@ -479,7 +474,8 @@ module.exports = function (app) {
             console.log(error);
             res.json({
                 status: "error",
-                error: "Error al actualizar la contraseña"
+                message: "Error al actualizar la contraseña",
+                error: error
             });
         }
     })
