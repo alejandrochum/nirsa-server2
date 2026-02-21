@@ -449,6 +449,30 @@ module.exports = function (app) {
         res.send(response);
     })
 
+    function generatePassword(length = 12) {
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        let password = "";
+
+        for (let i = 0; i < length; i++) {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+
+        return password;
+    }
+
+    router.post('/colaboradorcontrasena', async (req, res) => {
+        try {
+            let newPassword = generatePassword();
+            await getAuth().updateUser(req.body.id, {
+                password: newPassword
+            });
+            res.send(newPassword);
+        } catch (error) {
+            console.log(error);
+            res.send('Error al actualizar la contraseña del colaborador');
+        }
+    })
+
     router.post('/deletecolaborador', async (req, res) => {
 
         const batch = db.batch();
